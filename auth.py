@@ -39,10 +39,10 @@ def authenticate_twitch(client_id, client_secret, redirect_uri, scope):
 
 # Example usage
 if __name__ == '__main__':
-    client_id = 'ihf8dgt1iq4vnv9pjujt823pp60vn8'
-    client_secret = 'kbh1dc1622e17xfy9tnj2g7ad4aw41'
+    client_id = 'r6tbyrbhqebfd12lslot06myjqb1hm'
+    client_secret = '9pnpl9enexuyhm6sszws94ffonqpld'
     redirect_uri = 'http://localhost:3000'
-    scope = 'user:read:email channel:read:polls channel:manage:polls'
+    scope = 'chat:edit chat:read'
     
     access_token = authenticate_twitch(client_id, client_secret, redirect_uri, scope)
     

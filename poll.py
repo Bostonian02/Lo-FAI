@@ -1,40 +1,36 @@
-import requests
+import socket
 
-# Define your client ID and OAuth token
+# Define your Twitch bot's credentials
+bot_username = 'lo_fai'
+oauth_token = 'kpa1bx0ismg7mq2emkfpuyxl9bo34p'
+channel = 'lo_fai'  # E.g., '#twitch_channel_name'
+
+# lo_fai data and things and stuff
 client_id = 'ihf8dgt1iq4vnv9pjujt823pp60vn8'
-oauth_token = '6xzio3ftg3x7zdh82dhjyybhym6ifm'
+channel_id = '957095995'
 
-def create_poll(channel_id):
-   url = f'https://api.twitch.tv/helix/polls'
-   headers = {
-      'Client-ID': client_id,
-      'Authorization': f'Bearer {oauth_token}',
-   }
-   data = {
-      'broadcaster_id': channel_id,
-      'title': 'What should the next genre of music be?',
-      'choices': ['Choice 1', 'Choice 2', 'Choice 3'],
-      'duration': 30,
-   }
-   response = requests.post(url, headers=headers, json=data)
-   return response.json()
+# Connect to the Twitch IRC server
+server = 'irc.twitch.tv'
+port = 3000
 
-def get_poll(channel_id):
-   url = f'https://api.twitch.tv/helix/polls?broadcaster_id={channel_id}'
-   headers = {
-      'Client-ID': client_id,
-      'Authorization': f'Bearer {oauth_token}',
-   }
-   response = requests.get(url, headers=headers)
-   return response.json()
+irc = socket.socket()
+irc.connect((server, port))
 
-def tally_results(channel_id):
-   poll_data = get_poll(channel_id)
-   print(poll_data)
+# Authenticate with Twitch IRC using your OAuth token and bot username
+irc.send(f'PASS {oauth_token}\n'.encode('utf-8'))
+irc.send(f'NICK {bot_username}\n'.encode('utf-8'))
 
-# Replace 'channel_id' with the actual channel ID you want to work with
-channel_id = 'your_channel_id'
+# Join the desired Twitch channel
+irc.send(f'JOIN {channel}\n'.encode('utf-8'))
 
-# Create and tally the poll results
-create_poll(channel_id)
-tally_results(channel_id)
+# Start listening for messages
+while True:
+    message = irc.recv(2048).decode('utf-8')
+    if message.startswith('PING'):
+        irc.send('PONG\n'.encode('utf-8'))  # Respond to Twitch's PING requests
+    elif 'PRIVMSG' in message:
+        user = message.split('!', 1)[0][1:]
+        message_content = message.split('PRIVMSG', 1)[1].split(':', 1)[1]
+        print(f'{user}: {message_content}')
+
+
