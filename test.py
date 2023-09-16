@@ -21,38 +21,51 @@ async def run_inference(url, data):
 
 async def main():
     url = 'http://192.168.1.1:3013/run_inference/'
+    alpha = 0.25
+    alpha_velocity = 0.25
+    alpha_rollover = False
+    seed = 808
+    prompt = "funky jazz solo"
 
-    payload = {
-        "alpha": 0.25,
-        "seed_image_id": "vibes",
-        "num_inference_steps": 50,
-        "start": {
-            "denoising": 0.75,
-            "guidance": 7,
-            "prompt": "funky synth solo",
-            "seed": 808
-        },
-        "end": {
-            "denoising": 0.75,
-            "guidance": 7,
-            "prompt": "funky synth solo",
-            "seed": 809
+    while True:
+        payload = {
+            "alpha": alpha,
+            "seed_image_id": "vibes",
+            "num_inference_steps": 50,
+            "start": {
+                "denoising": 0.75,
+                "guidance": 7,
+                "prompt": prompt,
+                "seed": seed
+            },
+            "end": {
+                "denoising": 0.75,
+                "guidance": 7,
+                "prompt": prompt,
+                "seed": seed + 1
+            }
         }
-    }
 
-    response = await run_inference(url, data=payload)
+        response = await run_inference(url, data=payload)
 
-    if response is not None:
-        response_data = json.loads(response)
-        if 'audio' in response_data:
-            base64_encoded_audio = response_data['audio']
-            print(base64_encoded_audio)
-            binary_audio_data = base64.b64decode(base64_encoded_audio)
-            play_audio(binary_audio_data)
-        # print(f"POST Response:\n{response}")
-
-    else:
-        print("POST request failed.")
+        if response is not None:
+            response_data = json.loads(response)
+            new_alpha = alpha + alpha_velocity
+            if (new_alpha > 1 + 1e-3):
+                new_alpha = new_alpha - 1
+                alpha_rollover = True
+            alpha = new_alpha
+            if 'audio' in response_data:
+                base64_encoded_audio = response_data['audio']
+                print(base64_encoded_audio)
+                binary_audio_data = base64.b64decode(base64_encoded_audio)
+                play_audio(binary_audio_data)
+        else:
+            print("POST request failed.")
+        
+        if (alpha_rollover):
+            seed = seed + 1
+            alpha_rollever = False
 
 def play_audio(binary_audio_data):
     temp_audio_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
@@ -60,19 +73,6 @@ def play_audio(binary_audio_data):
     temp_audio_file.close()
     playsound(temp_audio_file.name)
     os.remove(temp_audio_file.name)
-
-    # pygame.mixer.init()
-
-    # try:
-    #     # Load and play the temporary audio file
-    #     pygame.mixer.music.load(temp_audio_file)
-    #     pygame.mixer.music.play()
-    #     pygame.event.wait()
-    # except pygame.error as e:
-    #     print(f"Pygame error: {e}")
-    # finally:
-    #     # Clean up after yourself
-    #     os.remove(temp_audio_file.name)
 
 if __name__ == '__main__':
     asyncio.run(main())
