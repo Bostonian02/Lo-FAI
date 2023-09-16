@@ -6,12 +6,12 @@ from PIL import Image, PngImagePlugin
 
 url = "http://127.0.0.1:7860"
 
-#PROMPT WILL COME TWITCH CHAT EVENTUALLY
+#PROMPT WILL COME FROM TWITCH CHAT EVENTUALLY
 prompt = "soft jazz"
 
 payload = {
     "prompt": "visual representation of "+ prompt +" music",
-    "negative_prompt": "human, text, words, letters",
+    "negative_prompt": "human, person, people, man, woman, text, words, letters",
     "steps": 20
 }
 
@@ -32,5 +32,5 @@ for i in r['images']:
 
     pnginfo = PngImagePlugin.PngInfo()
     pnginfo.add_text("parameters", response2.json().get("info"))
-    #saving PNG. not sure where this should go. so here it goes.
+    #saving PNG. pygame takes it and puts it in the stream window hopefully lmao
     image.save('output.png', pnginfo=pnginfo)
