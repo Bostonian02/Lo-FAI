@@ -6,9 +6,6 @@ from playsound import playsound
 import tempfile
 import os
 
-# Define a variable to store the preloaded audio data
-preloaded_audio_data = None
-
 async def run_inference(url, data):
     async with httpx.AsyncClient(timeout=60) as client:
         try:
@@ -21,42 +18,78 @@ async def run_inference(url, data):
             print(f"HTTP Error occurred: {e}")
             return None
 
-async def main():
-    url = 'http://192.168.1.1:3013/run_inference/'
-    alpha = 0.25
-    alpha_velocity = 0.25
+async def play_audio_and_request(url, alpha, seed, prompt):
     alpha_rollover = False
-    seed = 808
-    prompt = "funky jazz solo"
-
+    alpha_velocity = 0.25
     while True:
         payload = make_payload(alpha, prompt, seed)
 
-        if (preloaded_audio_data is None):
-            response = await run_inference(url, data=payload)
+        response = await run_inference(url, data=payload)
 
-            if response is not None:
-                response_data = json.loads(response)
-                new_alpha = alpha + alpha_velocity
-                if (new_alpha > 1 + 1e-3):
-                    new_alpha = new_alpha - 1
-                    alpha_rollover = True
-                alpha = new_alpha
-                if 'audio' in response_data:
-                    base64_encoded_audio = response_data['audio']
-                    print(base64_encoded_audio)
-                    binary_audio_data = base64.b64decode(base64_encoded_audio)
-                    play_audio(binary_audio_data)
+        if response is not None:
+            response_data = json.loads(response)
+            if 'audio' in response_data:
+                base64_encoded_audio = response_data['audio']
+                binary_audio_data = base64.b64decode(base64_encoded_audio)
             else:
-                print("POST request failed.")
+                print("No audio data in the response")
         else:
-            play_audio(preloaded_audio_data)
+            print("POST request failed")
         
+        # Play audio concurrently
+        play_audio_task = asyncio.to_thread(playsound, binary_audio_data)
+
+        # Wait for both tasks to complete
+        await play_audio_task
+
+        new_alpha = alpha + alpha_velocity
+        if (new_alpha > 1 + 1e-3):
+            new_alpha = new_alpha - 1
+            alpha_rollover = True
+        alpha = new_alpha
+
         if (alpha_rollover):
             seed = seed + 1
-            alpha_rollever = False
+            alpha_rollover = False
+
         
-        await preload_audio(url, make_payload(alpha, prompt, seed))
+
+
+async def main():
+    url = 'http://192.168.1.1:3013/run_inference/'
+    alpha = 0.25
+    seed = 808
+    prompt = "funky jazz solo"
+
+    # while True:
+    #     payload = make_payload(alpha, prompt, seed)
+
+    #     if (preloaded_audio_data is None):
+    #         response = await run_inference(url, data=payload)
+
+    #         if response is not None:
+    #             response_data = json.loads(response)
+    #             new_alpha = alpha + alpha_velocity
+    #             if (new_alpha > 1 + 1e-3):
+    #                 new_alpha = new_alpha - 1
+    #                 alpha_rollover = True
+    #             alpha = new_alpha
+    #             if 'audio' in response_data:
+    #                 base64_encoded_audio = response_data['audio']
+    #                 print(base64_encoded_audio)
+    #                 binary_audio_data = base64.b64decode(base64_encoded_audio)
+    #                 play_audio(binary_audio_data)
+    #         else:
+    #             print("POST request failed.")
+    #     else:
+    #         play_audio(preloaded_audio_data)
+        
+    #     if (alpha_rollover):
+    #         seed = seed + 1
+    #         alpha_rollever = False
+        
+    #     await preload_audio(url, make_payload(alpha, prompt, seed))
+    asyncio.run(play_audio_and_request(url, alpha, seed, prompt))
 
 def play_audio(binary_audio_data):
     temp_audio_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
@@ -64,20 +97,6 @@ def play_audio(binary_audio_data):
     temp_audio_file.close()
     playsound(temp_audio_file.name)
     os.remove(temp_audio_file.name)
-
-async def preload_audio(url, payload):
-    global preloaded_audio_data
-
-    try:
-        response = await run_inference(url, data=payload)
-
-        if response is not None:
-            response_data = json.loads(response)
-            if 'audio' in response_data:
-                base64_encoded_audio = response_data['audio']
-                preloaded_audio_data = base64.b64decode(base64_encoded_audio)
-    except Exception as e:
-        print(f"Error while preloading audio: {e}")
 
 def make_payload(alpha, prompt, seed):
     payload = {
