@@ -1,10 +1,13 @@
 import httpx
 import asyncio
+import json
 
 async def run_inference(url, data):
     async with httpx.AsyncClient(timeout=60) as client:
         try:
-            response = await client.post(url, data=data)
+            json_data = json.dumps(data)
+            headers={"Content-Type": "application/json"}
+            response = await client.post(url, data=json_data, headers=headers)
             response.raise_for_status() #Raise an exception for non-2xx codes
             return response.text
         except httpx.HTTPError as e:
@@ -16,7 +19,7 @@ async def main():
 
     payload = {
         "alpha": 0.25,
-        "seed_mask_id": "vibes",
+        "seed_image_id": "vibes",
         "num_inference_steps": 50,
         "start": {
             "denoising": 0.75,
@@ -32,13 +35,15 @@ async def main():
         }
     }
 
-    response = await run_inference(url, payload)
+    print(payload)
+
+    response = await run_inference(url, data=payload)
 
     if response is not None:
         print(f"POST Response:\n{response}")
     else:
         print("POST request failed.")
-        
+
 
 if __name__ == '__main__':
     asyncio.run(main())
