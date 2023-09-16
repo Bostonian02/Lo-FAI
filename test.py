@@ -6,6 +6,23 @@ from playsound import playsound
 import tempfile
 import os
 
+# Global variable to store binary audio data
+binary_audio_data = None
+
+async def get_binary_audio_data(url, data):
+    global binary_audio_data
+    response = await run_inference(url, data=data)
+
+    if response is not None:
+        response_data = json.loads(response)
+        if 'audio' in response_data:
+            base64_encoded_audio = response_data['audio']
+            binary_audio_data = base64.b64decode(base64_encoded_audio)
+        else:
+            print("No audio data in the response")
+    else:
+        print("POST request failed")
+
 async def run_inference(url, data):
     async with httpx.AsyncClient(timeout=60) as client:
         try:
@@ -18,30 +35,17 @@ async def run_inference(url, data):
             print(f"HTTP Error occurred: {e}")
             return None
 
+# Fix this to run in parallel instead of sequential
 async def play_audio_and_request(url, alpha, seed, prompt):
+    global binary_audio_data
     alpha_rollover = False
     alpha_velocity = 0.25
     while True:
         payload = make_payload(alpha, prompt, seed)
 
-        response = await run_inference(url, data=payload)
-
-        if response is not None:
-            response_data = json.loads(response)
-            if 'audio' in response_data:
-                base64_encoded_audio = response_data['audio']
-                binary_audio_data = base64.b64decode(base64_encoded_audio)
-            else:
-                print("No audio data in the response")
-        else:
-            print("POST request failed")
+        if (binary_audio_data == None):
+            await get_binary_audio_data(url, data=payload)
         
-        # Play audio concurrently
-        play_audio_task = asyncio.to_thread(playsound, binary_audio_data)
-
-        # Wait for both tasks to complete
-        await play_audio_task
-
         new_alpha = alpha + alpha_velocity
         if (new_alpha > 1 + 1e-3):
             new_alpha = new_alpha - 1
@@ -52,44 +56,15 @@ async def play_audio_and_request(url, alpha, seed, prompt):
             seed = seed + 1
             alpha_rollover = False
 
-        
+        # Play audio concurrently
+        play_audio_task = asyncio.to_thread(play_audio, binary_audio_data)
+        preload_audio_task = await asyncio.to_thread(get_binary_audio_data, url, make_payload(alpha, prompt, seed))
 
+        # Put tasks in a list
+        tasks = [play_audio_task, preload_audio_task]
 
-async def main():
-    url = 'http://192.168.1.1:3013/run_inference/'
-    alpha = 0.25
-    seed = 808
-    prompt = "funky jazz solo"
-
-    # while True:
-    #     payload = make_payload(alpha, prompt, seed)
-
-    #     if (preloaded_audio_data is None):
-    #         response = await run_inference(url, data=payload)
-
-    #         if response is not None:
-    #             response_data = json.loads(response)
-    #             new_alpha = alpha + alpha_velocity
-    #             if (new_alpha > 1 + 1e-3):
-    #                 new_alpha = new_alpha - 1
-    #                 alpha_rollover = True
-    #             alpha = new_alpha
-    #             if 'audio' in response_data:
-    #                 base64_encoded_audio = response_data['audio']
-    #                 print(base64_encoded_audio)
-    #                 binary_audio_data = base64.b64decode(base64_encoded_audio)
-    #                 play_audio(binary_audio_data)
-    #         else:
-    #             print("POST request failed.")
-    #     else:
-    #         play_audio(preloaded_audio_data)
-        
-    #     if (alpha_rollover):
-    #         seed = seed + 1
-    #         alpha_rollever = False
-        
-    #     await preload_audio(url, make_payload(alpha, prompt, seed))
-    asyncio.run(play_audio_and_request(url, alpha, seed, prompt))
+        # Run the tasks in the list concurrently
+        await asyncio.gather(*tasks)
 
 def play_audio(binary_audio_data):
     temp_audio_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
@@ -119,4 +94,8 @@ def make_payload(alpha, prompt, seed):
     return payload
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    url = 'http://192.168.1.1:3013/run_inference/'
+    alpha = 0.25
+    seed = 808
+    prompt = "funky jazz solo"
+    asyncio.run(play_audio_and_request(url, alpha, seed, prompt))
