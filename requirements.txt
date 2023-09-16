@@ -1,3 +1,6 @@
 httpx
 asyncio
 json
+base64
+playsound
+tempfile
