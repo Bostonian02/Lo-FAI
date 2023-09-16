@@ -11,6 +11,20 @@ from pydub import AudioSegment
 from io import BytesIO
 import pygame
 import math
+import numpy as np
+
+class RealTimeUpsampler:
+    def __init__(self, input_rate, output_rate):
+        self.input_rate = input_rate
+        self.output_rate = output_rate
+        self.ratio = output_rate / input_rate
+
+    def linear_interpolate(self, data):
+        indices = np.arange(0, len(data) - 1, 1 / self.ratio)
+        indices_floor = np.floor(indices).astype(int)
+        alpha = indices - indices_floor
+        upsampled = (1 - alpha) * data[indices_floor] + alpha * data[indices_floor + 1]
+        return upsampled.astype(data.dtype)
 
 # Initial starting seeds depending on seed map
 initialSeedImageMap = {
@@ -34,8 +48,7 @@ initialSeeds = [
 AUDIO_LENGTH = 5.11
 
 # Initialize pygame mixer outside of play_audio
-pygame.mixer.init(frequency=44100)
-pygame.mixer.music.set_volume(0.6)
+pygame.mixer.init(frequency=88200)
 
 # Global variable to store binary audio data
 binary_audio_data = None
@@ -77,7 +90,8 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
 
     while True:
         # Convert the current audio to WAV
-        wav_data = convert_to_wav(binary_audio_data)
+        upsampler = RealTimeUpsampler(44100, 88200)
+        wav_data = convert_to_wav(binary_audio_data, upsampler)
         song = pygame.mixer.Sound(BytesIO(wav_data))
 
         # Update alpha for the next payload
@@ -111,10 +125,20 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
         #     pygame.time.Clock().tick()
 
 # Convert mp3 data to wav since that's what PyGame supports
-def convert_to_wav(mp3_audio):
+# def convert_to_wav(mp3_audio):
+#     mp3 = AudioSegment.from_mp3(BytesIO(mp3_audio))
+#     buffer = BytesIO()
+#     mp3.export(buffer, format="wav")
+#     return buffer.getvalue()
+
+# Convert mp3 data to wav (and upscale it) since that's what PyGame supports
+def convert_to_wav(mp3_audio, upsampler):
     mp3 = AudioSegment.from_mp3(BytesIO(mp3_audio))
+    samples = np.array(mp3.get_array_of_samples())
+    upsampled_samples = upsampler.linear_interpolate(samples)
+    upsampled_audio = AudioSegment(upsampled_samples.tobytes(), frame_rate=88200, sample_width=mp3.sample_width, channels=mp3.channels)
     buffer = BytesIO()
-    mp3.export(buffer, format="wav")
+    upsampled_audio.export(buffer, format="wav")
     return buffer.getvalue()
 
 def make_payload(alpha, prompt_a, prompt_b, seed_image_id, seed):
@@ -142,5 +166,5 @@ if __name__ == '__main__':
     alpha = 0.25
     seed_image_id = initialSeeds[math.floor(random.random() * len(initialSeeds))]
     seed = initialSeedImageMap[seed_image_id][math.floor(random.random() * len(initialSeedImageMap[seed_image_id]))]
-    prompt = "k-pop"
+    prompt = "calm lo-fi music"
     asyncio.run(play_audio_and_request(url, alpha, seed, seed_image_id, prompt, prompt))
