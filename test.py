@@ -2,8 +2,10 @@ import httpx
 import asyncio
 import json
 import base64
-import playsound
+# import pygame.mixer
+from playsound import playsound
 import tempfile
+import os
 
 async def run_inference(url, data):
     async with httpx.AsyncClient(timeout=60) as client:
@@ -41,10 +43,14 @@ async def main():
     response = await run_inference(url, data=payload)
 
     if response is not None:
+        response_data = json.loads(response)
+        if 'audio' in response_data:
+            base64_encoded_audio = response_data['audio']
+            print(base64_encoded_audio)
+            binary_audio_data = base64.b64decode(base64_encoded_audio)
+            play_audio(binary_audio_data)
         # print(f"POST Response:\n{response}")
-        base64_encoded_audio = response["audio"]
-        binary_audio_data = base64.b64decode(base64_encoded_audio)
-        play_audio(binary_audio_data)
+
     else:
         print("POST request failed.")
 
@@ -52,7 +58,21 @@ def play_audio(binary_audio_data):
     temp_audio_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
     temp_audio_file.write(binary_audio_data)
     temp_audio_file.close()
-    playsound(temp_audio_file)
+    playsound(temp_audio_file.name)
+    os.remove(temp_audio_file.name)
+
+    # pygame.mixer.init()
+
+    # try:
+    #     # Load and play the temporary audio file
+    #     pygame.mixer.music.load(temp_audio_file)
+    #     pygame.mixer.music.play()
+    #     pygame.event.wait()
+    # except pygame.error as e:
+    #     print(f"Pygame error: {e}")
+    # finally:
+    #     # Clean up after yourself
+    #     os.remove(temp_audio_file.name)
 
 if __name__ == '__main__':
     asyncio.run(main())
