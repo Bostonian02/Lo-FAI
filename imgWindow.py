@@ -22,9 +22,9 @@ def average_color(image_path):
         g += pixel[1]
         b += pixel[2]
     
-    avg_r = 255 - (r // num_pixels)
-    avg_g = 255 - (g // num_pixels)
-    avg_b = 255 - (b // num_pixels)
+    avg_r = (r // num_pixels)
+    avg_g = (g // num_pixels)
+    avg_b = (b // num_pixels)
     
     return (avg_r, avg_g, avg_b)
 
@@ -67,7 +67,7 @@ pygame.display.set_caption("Display Image with Border, Rounded Corners, and Drop
 last_mod_time = os.path.getmtime(image_path)
 
 avg_color = average_color(image_path)
-print(f"Complement of the average color: {avg_color}")
+#print(f"Complement of the average color: {avg_color}") testing
 
 # Round the corners of the image and add a thinner black outline
 radius = 20
@@ -96,7 +96,7 @@ while running:
             image = new_image
             last_mod_time = current_mod_time
             avg_color = average_color(image_path)
-            print(f"Complement of the average color: {avg_color}")
+            #print(f"Complement of the average color: {avg_color}") #testing
         except FileNotFoundError:
             pass
 
