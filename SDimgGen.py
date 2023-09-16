@@ -8,7 +8,12 @@ from PIL import Image, PngImagePlugin
 url = "http://127.0.0.1:7860"
 
 #PROMPT WILL COME FROM TWITCH CHAT EVENTUALLY
-prompt = sys.argv[1]
+cleaned_args = [arg.strip('\'"') for arg in sys.argv[1:]]
+prompt = ' '.join(cleaned_args)
+
+with open('prompt.txt', 'w') as file:
+    file.write(prompt)
+
 
 #adding the keyword "dreamscape" to the prompt SIGNIFICANTLY decreases odds of getting people
 #it does result in oversaturated colorful psychedelic images
