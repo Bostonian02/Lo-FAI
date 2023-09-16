@@ -5,6 +5,30 @@ import base64
 from playsound import playsound
 import tempfile
 import os
+import random
+import math
+from pydub import AudioSegment
+from io import BytesIO
+import pygame
+
+initialSeedImageMap = {
+    "og_beat": [3, 738973, 674, 745234, 808, 231, 3324, 323984, 123, 51209, 123, 51209, 6754, 8730],
+    "agile": [808, 231, 3324, 323984],
+    "marim": [123, 51209, 6754, 8730],
+    "motorway": [8730, 323984, 745234],
+    "vibes": [4205, 94, 78530]
+}
+
+initialSeeds = [
+    "og_beat",
+    "agile",
+    "marim",
+    "motorway",
+    "vibes"
+]
+
+# Initialize pygame mixer outside of play_audio
+pygame.mixer.init(frequency=44100)
 
 # Global variable to store binary audio data
 binary_audio_data = None
@@ -36,47 +60,59 @@ async def run_inference(url, data):
             return None
 
 # Fix this to run in parallel instead of sequential
-async def play_audio_and_request(url, alpha, seed, prompt):
+async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt):
     global binary_audio_data
+    
     alpha_rollover = False
     alpha_velocity = 0.25
-    while True:
-        payload = make_payload(alpha, prompt, seed)
 
-        if (binary_audio_data == None):
-            await get_binary_audio_data(url, data=payload)
-        
+    # Initially load the first audio data
+    await get_binary_audio_data(url, make_payload(alpha, prompt, seed_image_id, seed))
+
+    while True:
+        # Convert the current audio to WAV
+        wav_data = convert_to_wav(binary_audio_data)
+        song = pygame.mixer.Sound(BytesIO(wav_data))
+
+        # Update alpha for the next payload
         new_alpha = alpha + alpha_velocity
-        if (new_alpha > 1 + 1e-3):
+        if new_alpha > 1 + 1e-3:
             new_alpha = new_alpha - 1
             alpha_rollover = True
         alpha = new_alpha
 
-        if (alpha_rollover):
-            seed = seed + 1
+        if alpha_rollover:
+            seed += 1
             alpha_rollover = False
 
-        # Play audio concurrently
-        play_audio_task = asyncio.to_thread(play_audio, binary_audio_data)
-        preload_audio_task = await asyncio.to_thread(get_binary_audio_data, url, make_payload(alpha, prompt, seed))
+        # Start playing the current audio
+        play_audio_task = asyncio.to_thread(song.play)
 
-        # Put tasks in a list
-        tasks = [play_audio_task, preload_audio_task]
+        # While the current audio is playing, preload and convert the next one
+        preload_audio_task = await asyncio.to_thread(get_binary_audio_data, url, make_payload(alpha, prompt, seed_image_id, seed))
 
-        # Run the tasks in the list concurrently
-        await asyncio.gather(*tasks)
+        # Run the tasks concurrently
+        await asyncio.gather(play_audio_task, preload_audio_task)
+
+        # Wait until the current audio finishes playing before proceeding to the next iteration
+        while pygame.mixer.get_busy():
+            pygame.time.Clock().tick(10)
+
+def convert_to_wav(mp3_audio):
+    mp3 = AudioSegment.from_mp3(BytesIO(mp3_audio))
+    buffer = BytesIO()
+    mp3.export(buffer, format="wav")
+    return buffer.getvalue()
 
 def play_audio(binary_audio_data):
-    temp_audio_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-    temp_audio_file.write(binary_audio_data)
-    temp_audio_file.close()
-    playsound(temp_audio_file.name)
-    os.remove(temp_audio_file.name)
+    wav_data = convert_to_wav(binary_audio_data)
+    song = pygame.mixer.Sound(BytesIO(wav_data))
+    song.play()
 
-def make_payload(alpha, prompt, seed):
+def make_payload(alpha, prompt, seed_image_id, seed):
     payload = {
         "alpha": alpha,
-        "seed_image_id": "vibes",
+        "seed_image_id": seed_image_id,
         "num_inference_steps": 50,
         "start": {
             "denoising": 0.75,
@@ -96,6 +132,7 @@ def make_payload(alpha, prompt, seed):
 if __name__ == '__main__':
     url = 'http://192.168.1.1:3013/run_inference/'
     alpha = 0.25
-    seed = 808
+    seed_image_id = initialSeeds[math.floor(random.random() * len(initialSeeds))]
+    seed = initialSeedImageMap[seed_image_id][math.floor(random.random() * len(initialSeedImageMap[seed_image_id]))]
     prompt = "funky jazz solo"
-    asyncio.run(play_audio_and_request(url, alpha, seed, prompt))
+    asyncio.run(play_audio_and_request(url, alpha, seed, seed_image_id, prompt))
