@@ -36,7 +36,7 @@ async def send_message(irc, channel, message):
 async def main():
     bot_nick = "lo_fai"
     channel = "lo_fai"
-    oauth_token = "oauth:fjxjdg3984lhmgdsptk1ii5my5xf22"
+    oauth_token = "oauth:lo3cnc658vwd4vz30mdu2ty1uoxs5c"
     
     irc = await twitch_connect(bot_nick, channel, oauth_token)
 
