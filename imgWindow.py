@@ -124,12 +124,14 @@ while running:
     text_surface = font.render(text, True, text_color)
 
     # Calculate the position for the "Now Playing:" text and the text from prompt.txt
-    text_x = x_offset + (spacing * 10) + image_width + (desired_width - (x_offset + image_width) - max(text_surface.get_width(), now_playing_surface.get_width())) // 2
-    now_playing_y = (desired_height - text_surface.get_height() - now_playing_surface.get_height() - spacing) // 2
-    text_y = now_playing_y + now_playing_surface.get_height() + (spacing*10)
+    text_x = x_offset - (spacing * 15) + image_width + (desired_width - (x_offset + image_width) - max(text_surface.get_width(), now_playing_surface.get_width())) // 2
+    now_playing_y = (desired_height - text_surface.get_height() - now_playing_surface.get_height() - (spacing*20)) // 2
+    text_y = now_playing_y + now_playing_surface.get_height() + spacing
 
     # Draw the "Now Playing:" text and the text from prompt.txt
+    font = pygame.font.SysFont('Bell MT', 50, bold=False)
     screen.blit(now_playing_surface, (text_x, now_playing_y))
+    font = pygame.font.SysFont('Bell MT', 50, bold=False)
     screen.blit(text_surface, (text_x, text_y))
 
 
