@@ -65,7 +65,7 @@ async def main():
 
             next_prompt = await return_popular_response()
             print("The next prompt is: " + next_prompt)
-            await set_next_prompt(next_prompt)
+            set_next_prompt(next_prompt)
 
         except ConnectionResetError:
             print("Connection was reset. Trying to reconnect...")
@@ -230,8 +230,9 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
         if transitioning:
             if (alpha_rollover):
                 new_prompt = get_next_prompt()
-                current_prompt = new_prompt
-                transitioning = False
+                if new_prompt:
+                    current_prompt = new_prompt
+                    transitioning = False
 
         # Check if alpha has rolled over
         if alpha_rollover:
@@ -301,4 +302,7 @@ if __name__ == '__main__':
     alpha = 0.25
     seed_image_id = initialSeeds[math.floor(random.random() * len(initialSeeds))]
     seed = initialSeedImageMap[seed_image_id][math.floor(random.random() * len(initialSeedImageMap[seed_image_id]))]
-    run_bot_and_audio()
+    try:
+        run_bot_and_audio()
+    except KeyboardInterrupt:
+        threading.Event().set()
