@@ -165,7 +165,10 @@ binary_audio_data = None
 
 # Setter method for the next prompt
 async def set_next_prompt(prompt):
-    next_prompt_queue.put(prompt)
+    global next_prompt
+    with next_prompt_lock:
+        if not next_prompt:
+            next_prompt = prompt
 
 # Getter method for the next prompt
 def get_next_prompt():
@@ -216,7 +219,7 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
     await get_binary_audio_data(url, make_payload(alpha, prompt_a, prompt_b, seed_image_id, seed))
 
     while True:
-        if not transitioning and not next_prompt_queue.empty():
+        if get_next_prompt() and not transitioning:
             print("we are transitioning")
             transitioning = True
             alpha = 0.25
@@ -235,10 +238,9 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
 
         if transitioning:
             if (alpha_rollover):
-                new_prompt = get_next_prompt()
-                if new_prompt:
-                    current_prompt = new_prompt
-                    transitioning = False
+                current_prompt = get_next_prompt()
+                set_next_prompt(None)
+                transitioning = False
 
         # Check if alpha has rolled over
         if alpha_rollover:
