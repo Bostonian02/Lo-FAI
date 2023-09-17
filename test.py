@@ -47,7 +47,12 @@ initialSeeds = [
 next_prompt = None
 
 # Global variable for current prompt
-current_prompt = "midwestern emo"
+current_prompt = "calming lofi"
+
+# Get current prompt
+def get_current_prompt():
+    global current_prompt
+    return current_prompt
 
 # Transitioning variable
 transitioning = False

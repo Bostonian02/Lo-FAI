@@ -28,6 +28,8 @@ def add_drop_shadow(surface, offset, shadow_color, radius):
     pygame.draw.rect(shadow, shadow_color, (offset, offset, surface.get_width(), surface.get_height()), border_radius=radius)
     return shadow
 
+fullscreen = False
+
 image_path = r"C:\Users\saget\Desktop\Shellhacks2023\Lo-FAI\output.png"
 
 pygame.init()
@@ -47,6 +49,11 @@ image_width, image_height = image.get_size()
 # Calculate the desired window dimensions based on the image size and the 16:9 ratio
 desired_width = image_width
 desired_height = int(desired_width * 9 / 16)
+
+if fullscreen:
+    screen = pygame.display.set_mode((desired_width, desired_height), pygame.FULLSCREEN)
+else:
+    screen = pygame.display.set_mode((desired_width, desired_height))
 
 # If the desired height is less than the image height, adjust the width and height to maintain the 16:9 ratio
 if desired_height <= image_height:
@@ -73,6 +80,14 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        # Add this to toggle fullscreen with the F key
+        elif event.type == KEYDOWN:
+            if event.key == pygame.K_f:
+                fullscreen = not fullscreen
+                if fullscreen:
+                    screen = pygame.display.set_mode((desired_width, desired_height), pygame.FULLSCREEN)
+                else:
+                    screen = pygame.display.set_mode((desired_width, desired_height))
 
     current_mod_time = os.path.getmtime(image_path)
 

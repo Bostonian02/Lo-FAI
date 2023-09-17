@@ -2,15 +2,16 @@ import socket
 import time
 import asyncio
 import random
+from test import set_next_prompt
 
 # Define your Twitch bot's credentials
-#bot_username = 'lo_fai'
-#oauth_token = 'fjxjdg3984lhmgdsptk1ii5my5xf22'
-#channel = 'lo_fai'  # E.g., '#twitch_channel_name'
+bot_username = 'lo_fai'
+oauth_token = 'fjxjdg3984lhmgdsptk1ii5my5xf22'
+channel = 'lo_fai'  # E.g., '#twitch_channel_name'
 
 # lo_fai data and things and stuff
-#client_id = 'ihf8dgt1iq4vnv9pjujt823pp60vn8'
-#channel_id = '957095995'
+client_id = 'ihf8dgt1iq4vnv9pjujt823pp60vn8'
+channel_id = '957095995'
 
 def twitch_connect(bot_nick, channel, oauth_token):
     server = 'irc.chat.twitch.tv'
@@ -64,7 +65,7 @@ async def main():
         next_prompt = await return_popular_response()
         print("The next prompt is: " + next_prompt)
         # And here we send this to the AI model
-        # set_next_prompt(next_prompt)
+        set_next_prompt(next_prompt)
 
 
 async def look_for_suggestions(response, irc, channel):
