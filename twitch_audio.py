@@ -157,9 +157,6 @@ next_prompt = None
 # Next prompt queue
 next_prompt_queue = queue.Queue()
 
-# Global variable for current prompt
-current_prompt = "calming lofi"
-
 # Global current prompt queue
 current_prompt_queue = queue.Queue()
 
@@ -185,6 +182,10 @@ def set_current_prompt(prompt):
     while not current_prompt_queue.empty():
         current_prompt_queue.get_nowait()
     current_prompt_queue.put(prompt)
+
+# Global variable for current prompt
+current_prompt = "calming lofi"
+set_current_prompt("calming lofi")
 
 # Getter method for the next prompt
 def get_next_prompt():
@@ -400,6 +401,7 @@ if __name__ == '__main__':
     alpha = 0.25
     seed_image_id = initialSeeds[math.floor(random.random() * len(initialSeeds))]
     seed = initialSeedImageMap[seed_image_id][math.floor(random.random() * len(initialSeedImageMap[seed_image_id]))]
+    
     try:
         run_bot_and_audio()
     except KeyboardInterrupt:
