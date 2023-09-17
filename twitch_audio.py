@@ -287,41 +287,47 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
         # Run the tasks concurrently
         await asyncio.gather(play_audio_task, preload_audio_task, wait_audio_task)
 
-class PromptManager:
-    def __init__(self):
-        self.current_prompt = get_current_prompt()
-        self.event = asyncio.Event()
+async def update_SD_art(current_prompt):
+    url = "http://127.0.0.1:7860/"
 
-    def listen_for_prompt_change(self):
-        while True:
-            new_prompt = get_current_prompt()
-            if new_prompt != self.current_prompt:
-                self.current_prompt = new_prompt
-                self.event.set()
-            asyncio.sleep(1)
+    user_input = current_prompt
+    while True:
+        await asyncio.sleep(5)  # Add a delay to prevent high CPU usage
 
-    async def get_image_from_server(self, prompt):
-        url = "http://127.0.0.1:7860"
+        prev_input = user_input
+        user_input = get_current_prompt()
+        print(f"Previous Prompt: {prev_input}, Current Prompt: {user_input}")  # Print prompts for debugging
+        if user_input == prev_input:
+            continue
+        prompt = current_prompt
+
+        with open('prompt.txt', 'w') as file:
+            file.write(prompt)
+
         payload = {
-            # ... (same as before)
-        }
+            "prompt": "(representation of "+ prompt +" music:1.5), beautiful artwork, 8k, highest resolution",
+            "negative_prompt": "(human:1.5), (person:1.5), (grainy:1.3), grid, people, man, woman, nude, naked, nsfw, porn, text, portrait, watermark, signature, (words:1.5), (letters:1.5)",
+            "steps": 20,
+            "cfg_scale": 7,
+         }
+
         async with httpx.AsyncClient() as client:
             response = await client.post(f'{url}/sdapi/v1/txt2img', json=payload)
-            return response.json()
+            r = response.json()
 
-    async def save_image(self, image_data):
-        # ... (same as before)
+            # Assuming you only want the first image
+            if r['images']:
+                i = r['images'][0]
+                image = Image.open(io.BytesIO(base64.b64decode(i.split(",",1)[0])))
 
-        async def update_SD_art(self):
-            while True:
-                await self.event.wait()  # Wait for the prompt to change
-                image_data = await self.get_image_from_server(self.current_prompt)
-                await self.save_image(image_data)
-                self.event.clear()  # Reset the event
+                png_payload = {
+                    "image": "data:image/png;base64," + i
+                }
+                response2 = await client.post(f'{url}/sdapi/v1/png-info', json=png_payload)
 
-    # Usage
-    manager = PromptManager()
-    asyncio.gather(manager.listen_for_prompt_change(), manager.update_SD_art())
+                pnginfo = PngImagePlugin.PngInfo()
+                pnginfo.add_text("parameters", response2.json().get("info"))
+                image.save('output.png', pnginfo=pnginfo)
 
 # Convert mp3 data to wav (and upscale it) since that's what PyGame supports
 def convert_to_wav(mp3_audio, upsampler):
@@ -359,7 +365,7 @@ def make_payload(alpha, prompt_a, prompt_b, seed_image_id, seed):
 def run_bot_and_audio():
     twitch_bot_thread = threading.Thread(target=asyncio.run, args=(main(),))
     audio_generator_thread = threading.Thread(target=asyncio.run, args=(play_audio_and_request(url, alpha, seed, seed_image_id, current_prompt, current_prompt),))
-    image_generator_thread = threading.Thread(target=asyncio.run, args=(update_SD_art(self)))
+    image_generator_thread = threading.Thread(target=asyncio.run, args=(update_SD_art(get_current_prompt())))
 
     twitch_bot_thread.start()
     audio_generator_thread.start()
