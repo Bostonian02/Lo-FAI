@@ -70,7 +70,7 @@ pygame.mixer.init(frequency=88200)
 binary_audio_data = None
 
 # Setter method for the next prompt
-def set_next_prompt(prompt):
+async def set_next_prompt(prompt):
     global next_prompt
     global next_prompt_changed
     next_prompt = prompt
@@ -119,6 +119,7 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
 
     while True:
         if next_prompt_changed and not transitioning:
+            print("we are transitioning")
             transitioning = True
             alpha = 0.25
         
