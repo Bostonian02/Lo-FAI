@@ -50,7 +50,7 @@ next_prompt = None
 # Global flag
 next_prompt_changed = False
 
-next_promp_lock = threading.Lock()
+next_prompt_lock = threading.Lock()
 
 # Global variable for current prompt
 current_prompt = "calming lofi"
@@ -76,9 +76,15 @@ binary_audio_data = None
 async def set_next_prompt(prompt):
     global next_prompt
     global next_prompt_changed
-    with next_promp_lock:
+    with next_prompt_lock:
         next_prompt = prompt
         next_prompt_changed = True
+
+# Getter method for the next prompt
+def get_next_prompt():
+    global next_prompt
+    with next_prompt_lock:
+        return next_prompt
 
 # Get binary audio data from the inference model response
 async def get_binary_audio_data(url, data):
@@ -124,7 +130,7 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
     while True:
         print("next prompt?: " + str(next_prompt_changed))
         print("transitioning?: " + str(transitioning))
-        if next_prompt_changed and not transitioning:
+        if get_next_prompt() and not transitioning:
             print("we are transitioning")
             transitioning = True
             alpha = 0.25
@@ -143,8 +149,8 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
 
         if transitioning:
             if (alpha_rollover):
-                current_prompt = next_prompt
-                next_prompt = None
+                current_prompt = get_next_prompt()
+                await set_next_prompt(None)
                 next_prompt_changed = False
                 transitioning = False
 
@@ -157,7 +163,7 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
 
         
         # Make next payload
-        next_payload = make_payload(alpha, current_prompt, current_prompt if not next_prompt else next_prompt, seed_image_id, seed)
+        next_payload = make_payload(alpha, current_prompt, current_prompt if not get_next_prompt() else get_next_prompt(), seed_image_id, seed)
 
         # Start playing the current audio
         play_audio_task = asyncio.to_thread(song.play)
