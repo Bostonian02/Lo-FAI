@@ -18,6 +18,9 @@ import io
 import base64
 from PIL import Image, PngImagePlugin
 
+# Constant default prompt
+DEFAULT_PROMPT = "calming lofi"
+
 # Global queue for next prompt
 next_prompt_queue = queue.Queue()
 
@@ -112,7 +115,7 @@ async def return_popular_response():
     global suggestions
 
     if not suggestions:
-        return "calming lo-fi"
+        return DEFAULT_PROMPT
     chosen_suggestion = random.choice(suggestions)
     suggestions.clear()
     return chosen_suggestion
@@ -184,8 +187,8 @@ def set_current_prompt(prompt):
     current_prompt_queue.put(prompt)
 
 # Global variable for current prompt
-current_prompt = "calming lofi"
-set_current_prompt("calming lofi")
+current_prompt = DEFAULT_PROMPT
+set_current_prompt(DEFAULT_PROMPT)
 
 # Getter method for the next prompt
 def get_next_prompt():
@@ -203,7 +206,7 @@ def peek_next_prompt():
         next_prompt_queue.put(prompt)
         return prompt
     except queue.Empty:
-        return None
+        return DEFAULT_PROMPT
 
 # Peek at the current prompt without removing it from the queue
 def peek_current_prompt():
@@ -212,7 +215,7 @@ def peek_current_prompt():
         current_prompt_queue.put(prompt)
         return prompt
     except queue.Empty:
-        return None
+        return DEFAULT_PROMPT
 
 # Get binary audio data from the inference model response
 async def get_binary_audio_data(url, data):
