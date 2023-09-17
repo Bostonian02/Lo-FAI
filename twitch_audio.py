@@ -275,11 +275,13 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
         # Set prompt_a and prompt_b based on transitioning state and next_prompt_queue
         next_in_queue = peek_next_prompt()
         if transitioning and next_in_queue:
-            prompt_a = current_prompt
+            # prompt_a = current_prompt
+            prompt_a = get_current_prompt()
             prompt_b = next_in_queue
         else:
-            prompt_a = current_prompt
-            prompt_b = current_prompt
+            curr_prompt = get_current_prompt()
+            prompt_a = curr_prompt
+            prompt_b = curr_prompt
 
         # Check if alpha has rolled over
         if alpha_rollover:
@@ -305,10 +307,10 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
         # Run the tasks concurrently
         await asyncio.gather(play_audio_task, preload_audio_task, wait_audio_task)
 
-async def update_SD_art(current_prompt):
+async def update_SD_art():
     url = "http://127.0.0.1:7860/"
 
-    user_input = current_prompt
+    user_input = get_current_prompt()
     while True:
         await asyncio.sleep(5)  # Add a delay to prevent high CPU usage
 
@@ -317,7 +319,7 @@ async def update_SD_art(current_prompt):
         print(f"Previous Prompt: {prev_input}, Current Prompt: {user_input}")  # Print prompts for debugging
         if user_input == prev_input:
             continue
-        prompt = current_prompt
+        prompt = user_input
 
         with open('prompt.txt', 'w') as file:
             file.write(prompt)
@@ -383,7 +385,7 @@ def make_payload(alpha, prompt_a, prompt_b, seed_image_id, seed):
 def run_bot_and_audio():
     twitch_bot_thread = threading.Thread(target=asyncio.run, args=(main(),))
     audio_generator_thread = threading.Thread(target=asyncio.run, args=(play_audio_and_request(url, alpha, seed, seed_image_id, current_prompt, current_prompt),))
-    image_generator_thread = threading.Thread(target=asyncio.run, args=(update_SD_art(get_current_prompt())))
+    image_generator_thread = threading.Thread(target=asyncio.run, args=(update_SD_art()))
 
     twitch_bot_thread.start()
     audio_generator_thread.start()
