@@ -12,6 +12,11 @@ import pygame
 import numpy as np
 import threading
 import queue
+import json
+import requests
+import io
+import base64
+from PIL import Image, PngImagePlugin
 
 # Global queue for next prompt
 next_prompt_queue = queue.Queue()
@@ -20,15 +25,26 @@ next_prompt_queue = queue.Queue()
 
 def twitch_connect(bot_nick, channel, oauth_token):
     server = 'irc.chat.twitch.tv'
-    port = 6697
+    port = 6697  # Updated to Twitch's SSL port
 
+    # Create a socket
     irc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    irc = ssl.wrap_socket(irc)  # Wrap the socket for SSL
+
+    # Create an SSL context
+    context = ssl.create_default_context()
+
+    # Wrap the socket with SSL
+    irc = context.wrap_socket(irc, server_hostname=server)
+
+    # Connect to the server
     irc.connect((server, port))
 
+    # Send authentication and join messages
     irc.send(f"PASS {oauth_token}\r\n".encode('utf-8'))
     irc.send(f"NICK {bot_nick}\r\n".encode('utf-8'))
     irc.send(f"JOIN #{channel}\r\n".encode('utf-8'))
+
+    # Receive and print the server's response
     response = irc.recv(2048).decode('utf-8')
     print(response)
 
@@ -43,7 +59,7 @@ async def send_message(irc, channel, message):
 async def main():
     bot_nick = "lo_fai"
     channel = "lo_fai"
-    oauth_token = "oauth:iu06wjmcdcb7b8x9u18logfgdjfmh2"
+    oauth_token = "oauth:bzjdpmnvjlff2l6pgj80hdfr4yq6d8"
 
     irc = twitch_connect(bot_nick, channel, oauth_token)
     
@@ -169,6 +185,17 @@ def get_next_prompt():
     except queue.Empty:
         return get_current_prompt()
 
+# Peek at the next prompt without removing it from the queue.  
+def peek_next_prompt():
+    try:
+        # Temporarily get the next prompt
+        prompt = next_prompt_queue.get_nowait()
+        # Immediately put it back to ensure it's not removed
+        next_prompt_queue.put(prompt)
+        return prompt
+    except queue.Empty:
+        return None
+
 # Get binary audio data from the inference model response
 async def get_binary_audio_data(url, data):
     global binary_audio_data
@@ -210,7 +237,8 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
     await get_binary_audio_data(url, make_payload(alpha, prompt_a, prompt_b, seed_image_id, seed))
 
     while True:
-        if not transitioning and not next_prompt_queue.empty():
+        # Check if there's a new prompt and we're not already transitioning
+        if not next_prompt_queue.empty() and not transitioning:
             print("we are transitioning")
             transitioning = True
             alpha = 0.25
@@ -227,20 +255,25 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
             alpha_rollover = True
         alpha = new_alpha
 
-        if transitioning:
-            if (alpha_rollover):
-                if not next_prompt_queue.empty():
-                    new_prompt = get_next_prompt()
-                    current_prompt = new_prompt
-                    transitioning = False
+        # Set prompt_a and prompt_b based on transitioning state and next_prompt_queue
+        next_in_queue = peek_next_prompt()
+        if transitioning and next_in_queue:
+            prompt_a = current_prompt
+            prompt_b = next_in_queue
+        else:
+            prompt_a = current_prompt
+            prompt_b = current_prompt
 
         # Check if alpha has rolled over
         if alpha_rollover:
             seed += 1
             alpha_rollover = False
+            if transitioning:
+                current_prompt = get_next_prompt()
+                transitioning = False
         
         # Make next payload
-        next_payload = make_payload(alpha, current_prompt, current_prompt if not get_next_prompt() else get_next_prompt(), seed_image_id, seed)
+        next_payload = make_payload(alpha, prompt_a, prompt_b, seed_image_id, seed)
 
         # Start playing the current audio
         play_audio_task = asyncio.to_thread(song.play)
@@ -253,6 +286,42 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
 
         # Run the tasks concurrently
         await asyncio.gather(play_audio_task, preload_audio_task, wait_audio_task)
+
+class PromptManager:
+    def __init__(self):
+        self.current_prompt = get_current_prompt()
+        self.event = asyncio.Event()
+
+    def listen_for_prompt_change(self):
+        while True:
+            new_prompt = get_current_prompt()
+            if new_prompt != self.current_prompt:
+                self.current_prompt = new_prompt
+                self.event.set()
+            asyncio.sleep(1)
+
+    async def get_image_from_server(self, prompt):
+        url = "http://127.0.0.1:7860"
+        payload = {
+            # ... (same as before)
+        }
+        async with httpx.AsyncClient() as client:
+            response = await client.post(f'{url}/sdapi/v1/txt2img', json=payload)
+            return response.json()
+
+    async def save_image(self, image_data):
+        # ... (same as before)
+
+        async def update_SD_art(self):
+            while True:
+                await self.event.wait()  # Wait for the prompt to change
+                image_data = await self.get_image_from_server(self.current_prompt)
+                await self.save_image(image_data)
+                self.event.clear()  # Reset the event
+
+    # Usage
+    manager = PromptManager()
+    asyncio.gather(manager.listen_for_prompt_change(), manager.update_SD_art())
 
 # Convert mp3 data to wav (and upscale it) since that's what PyGame supports
 def convert_to_wav(mp3_audio, upsampler):
@@ -290,12 +359,15 @@ def make_payload(alpha, prompt_a, prompt_b, seed_image_id, seed):
 def run_bot_and_audio():
     twitch_bot_thread = threading.Thread(target=asyncio.run, args=(main(),))
     audio_generator_thread = threading.Thread(target=asyncio.run, args=(play_audio_and_request(url, alpha, seed, seed_image_id, current_prompt, current_prompt),))
+    image_generator_thread = threading.Thread(target=asyncio.run, args=(update_SD_art(self)))
 
     twitch_bot_thread.start()
     audio_generator_thread.start()
+    image_generator_thread.start()
 
     twitch_bot_thread.join()
     audio_generator_thread.join()
+    image_generator_thread.join()
 
 if __name__ == '__main__':
     url = 'http://192.168.1.1:3013/run_inference/'
