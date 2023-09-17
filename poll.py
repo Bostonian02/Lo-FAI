@@ -1,5 +1,7 @@
 import socket
 import time
+import asyncio
+import random
 
 # Define your Twitch bot's credentials
 #bot_username = 'lo_fai'
@@ -26,11 +28,11 @@ def twitch_connect(bot_nick, channel, oauth_token):
 
 suggestions = []  # List to store the suggestions
 
-def send_message(irc, channel, message):
+async def send_message(irc, channel, message):
     """Send a message to the Twitch channel."""
     irc.send(f"PRIVMSG #{channel} :{message}\r\n".encode('utf-8'))
 
-def main():
+async def main():
     bot_nick = "lo_fai"
     channel = "lo_fai"
     oauth_token = "oauth:fjxjdg3984lhmgdsptk1ii5my5xf22"
@@ -44,27 +46,56 @@ def main():
     while True:
         response = irc.recv(2048).decode('utf-8')
 
+        wait_time_task = await asyncio.to_thread(asyncio.sleep, 30)
+
         # Responding to PING messages from the server to stay connected
         if response.startswith('PING'):
             irc.send("PONG :tmi.twitch.tv\r\n".encode('utf-8'))
-        
-        # Check for messages in the format of PRIVMSG
-        elif "PRIVMSG" in response:
-            user = response.split('!', 1)[0][1:]
-            message = response.split('PRIVMSG', 1)[1].split(':', 1)[1].strip()
-
-            # If message starts with !suggest
-            if message.startswith('!suggest'):
-                # Split the message by spaces
-                parts = message.split()
-                # If there are more parts after !suggest, we consider them the suggestion
-                if len(parts) > 1:
-                    suggestion = ' '.join(parts[1:])
-                    suggestions.append(suggestion)
-                    send_message(irc, channel, f"Thank you {user}! Your suggestion has been added.")
         else:
             print(response)
 
-if __name__ == "__main__":
-    main()
+        # Check for messages in the format of PRIVMSG
+        look_for_suggestion_task = await asyncio.to_thread(look_for_suggestions, response, irc, channel)
 
+        # Wait and look for suggestions concurrently
+        await asyncio.gather(wait_time_task, look_for_suggestion_task)
+
+        # Grab an element randomly from the list and clear it
+        next_prompt = await return_popular_response()
+        print("The next prompt is: " + next_prompt)
+        # And here we send this to the AI model
+        # set_next_prompt(next_prompt)
+
+
+async def look_for_suggestions(response, irc, channel):
+    global suggestions
+
+    if ("PRIVMSG" not in response):
+        return
+    user = response.split('!', 1)[0][1:]
+    message = response.split('PRIVMSG', 1)[1].split(':', 1)[1].strip()
+
+    # If message starts with !suggest
+    if message.startswith('!suggest'):
+        # Split the message by spaces
+        parts = message.split()
+        # If there are more parts after !suggest, we consider them the suggestion
+        if len(parts) > 1:
+            suggestion = ' '.join(parts[1:])
+            print(suggestion + " has been added to suggestions")
+            suggestions.append(suggestion)
+            await send_message(irc, channel, f"Your suggestion {suggestion} has been added.")
+
+# Finish this
+async def return_popular_response():
+    global suggestions
+
+    if not suggestions:
+        return "calming lo-fi"
+    chosen_suggestion = random.choice(suggestions)
+    suggestions.clear()
+    return chosen_suggestion
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
