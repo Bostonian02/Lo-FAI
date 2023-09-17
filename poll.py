@@ -5,15 +5,15 @@ import random
 from test import set_next_prompt
 
 # Define your Twitch bot's credentials
-bot_username = 'lo_fai'
-oauth_token = 'fjxjdg3984lhmgdsptk1ii5my5xf22'
-channel = 'lo_fai'  # E.g., '#twitch_channel_name'
+# bot_username = 'lo_fai'
+# oauth_token = 'fjxjdg3984lhmgdsptk1ii5my5xf22'
+# channel = 'lo_fai'  # E.g., '#twitch_channel_name'
 
 # lo_fai data and things and stuff
 client_id = 'ihf8dgt1iq4vnv9pjujt823pp60vn8'
 channel_id = '957095995'
 
-def twitch_connect(bot_nick, channel, oauth_token):
+async def twitch_connect(bot_nick, channel, oauth_token):
     server = 'irc.chat.twitch.tv'
     port = 6667
 
@@ -38,7 +38,7 @@ async def main():
     channel = "lo_fai"
     oauth_token = "oauth:fjxjdg3984lhmgdsptk1ii5my5xf22"
     
-    irc = twitch_connect(bot_nick, channel, oauth_token)
+    irc = await twitch_connect(bot_nick, channel, oauth_token)
 
     start_time = time.time()
     end_time = start_time + 30
