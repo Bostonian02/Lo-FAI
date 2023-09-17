@@ -47,13 +47,13 @@ async def main():
     while True:
         response = irc.recv(2048).decode('utf-8')
 
-        wait_time_task = await asyncio.to_thread(asyncio.sleep, 30)
-
         # Responding to PING messages from the server to stay connected
         if response.startswith('PING'):
             irc.send("PONG :tmi.twitch.tv\r\n".encode('utf-8'))
         else:
             print(response)
+
+        wait_time_task = await asyncio.to_thread(asyncio.sleep, 30)
 
         # Check for messages in the format of PRIVMSG
         look_for_suggestion_task = await asyncio.to_thread(look_for_suggestions, response, irc, channel)
