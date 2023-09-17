@@ -67,9 +67,10 @@ pygame.mixer.init(frequency=88200)
 binary_audio_data = None
 
 # Setter method for the next prompt
-def set_next_prompt(prompt):
+async def set_next_prompt(prompt):
     global next_prompt
     next_prompt = prompt
+    print("next prompt is now: " + next_prompt)
 
 # Get binary audio data from the inference model response
 async def get_binary_audio_data(url, data):
@@ -112,7 +113,8 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
     await get_binary_audio_data(url, make_payload(alpha, prompt_a, prompt_b, seed_image_id, seed))
 
     while True:
-        if next_prompt and not transitioning:
+        if (next_prompt is not None) and (not transitioning):
+            print("we are transitioning")
             transitioning = True
             alpha = 0.25
         
