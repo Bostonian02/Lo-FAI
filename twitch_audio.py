@@ -138,10 +138,8 @@ initialSeeds = [
 # Global variable for next prompt
 next_prompt = None
 
-# Global flag
-next_prompt_changed = False
-
-next_prompt_lock = threading.Lock()
+# Next prompt queue
+next_prompt_queue = queue.Queue()
 
 # Global variable for current prompt
 current_prompt = "calming lofi"
@@ -154,9 +152,6 @@ def get_current_prompt():
 # Transitioning variable
 transitioning = False
 
-# Audio clip length
-AUDIO_LENGTH = 5.11
-
 # Initialize pygame mixer outside of play_audio
 pygame.mixer.init(frequency=88200)
 
@@ -164,11 +159,8 @@ pygame.mixer.init(frequency=88200)
 binary_audio_data = None
 
 # Setter method for the next prompt
-async def set_next_prompt(prompt):
-    global next_prompt
-    with next_prompt_lock:
-        if not next_prompt:
-            next_prompt = prompt
+def set_next_prompt(prompt):
+    next_prompt_queue.put(prompt)
 
 # Getter method for the next prompt
 def get_next_prompt():
@@ -208,7 +200,6 @@ async def run_inference(url, data):
 async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prompt_b):
     global binary_audio_data
     global next_prompt
-    global next_prompt_changed
     global transitioning
     global current_prompt
     
@@ -219,7 +210,7 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
     await get_binary_audio_data(url, make_payload(alpha, prompt_a, prompt_b, seed_image_id, seed))
 
     while True:
-        if get_next_prompt() and not transitioning:
+        if not transitioning and not next_prompt_queue.empty():
             print("we are transitioning")
             transitioning = True
             alpha = 0.25
@@ -238,8 +229,8 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
 
         if transitioning:
             if (alpha_rollover):
-                current_prompt = get_next_prompt()
-                set_next_prompt(None)
+                new_prompt = get_next_prompt()
+                current_prompt = new_prompt
                 transitioning = False
 
         # Check if alpha has rolled over
