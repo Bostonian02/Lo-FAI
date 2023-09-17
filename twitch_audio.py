@@ -160,10 +160,12 @@ next_prompt_queue = queue.Queue()
 # Global variable for current prompt
 current_prompt = "calming lofi"
 
+# Global current prompt queue
+current_prompt_queue = queue.Queue()
+
 # Get current prompt
 def get_current_prompt():
-    global current_prompt
-    return current_prompt
+    return peek_current_prompt()
 
 # Transitioning variable
 transitioning = False
@@ -177,6 +179,12 @@ binary_audio_data = None
 # Setter method for the next prompt
 def set_next_prompt(prompt):
     next_prompt_queue.put(prompt)
+
+# Setter method for current prompt
+def set_current_prompt(prompt):
+    while not current_prompt_queue.empty():
+        current_prompt_queue.get_nowait()
+    current_prompt_queue.put(prompt)
 
 # Getter method for the next prompt
 def get_next_prompt():
@@ -192,6 +200,15 @@ def peek_next_prompt():
         prompt = next_prompt_queue.get_nowait()
         # Immediately put it back to ensure it's not removed
         next_prompt_queue.put(prompt)
+        return prompt
+    except queue.Empty:
+        return None
+
+# Peek at the current prompt without removing it from the queue
+def peek_current_prompt():
+    try:
+        prompt = current_prompt_queue.get_nowait()
+        current_prompt_queue.put(prompt)
         return prompt
     except queue.Empty:
         return None
@@ -269,7 +286,8 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
             seed += 1
             alpha_rollover = False
             if transitioning:
-                current_prompt = get_next_prompt()
+                # current_prompt = get_next_prompt()
+                set_current_prompt(get_next_prompt())
                 transitioning = False
         
         # Make next payload
