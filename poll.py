@@ -1,5 +1,5 @@
 import socket
-import requests
+import time
 
 # Define your Twitch bot's credentials
 #bot_username = 'lo_fai'
@@ -37,6 +37,9 @@ def main():
     
     irc = twitch_connect(bot_nick, channel, oauth_token)
 
+    start_time = time.time()
+    end_time = start_time + 30
+    
     # Simple loop to keep the bot running and print any incoming messages
     while True:
         response = irc.recv(2048).decode('utf-8')
