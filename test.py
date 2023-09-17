@@ -3,8 +3,6 @@ import asyncio
 import json
 import base64
 from playsound import playsound
-import tempfile
-import os
 import random
 import math
 from pydub import AudioSegment
@@ -13,6 +11,7 @@ import pygame
 import math
 import numpy as np
 
+# Upsampler for the model's audio
 class RealTimeUpsampler:
     def __init__(self, input_rate, output_rate):
         self.input_rate = input_rate
@@ -44,6 +43,15 @@ initialSeeds = [
     "vibes"
 ]
 
+# Global variable for next prompt
+next_prompt = None
+
+# Global variable for current prompt
+current_prompt = "midwestern emo"
+
+# Transitioning variable
+transitioning = False
+
 # Audio clip length
 AUDIO_LENGTH = 5.11
 
@@ -53,6 +61,12 @@ pygame.mixer.init(frequency=88200)
 # Global variable to store binary audio data
 binary_audio_data = None
 
+# Setter method for the next prompt
+def set_next_prompt(prompt):
+    global next_prompt
+    next_prompt = prompt
+
+# Get binary audio data from the inference model response
 async def get_binary_audio_data(url, data):
     global binary_audio_data
     response = await run_inference(url, data=data)
@@ -67,6 +81,7 @@ async def get_binary_audio_data(url, data):
     else:
         print("POST request failed")
 
+# Make a request to the inference model
 async def run_inference(url, data):
     async with httpx.AsyncClient(timeout=60) as client:
         try:
@@ -81,6 +96,9 @@ async def run_inference(url, data):
 
 async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prompt_b):
     global binary_audio_data
+    global next_prompt
+    global transitioning
+    global current_prompt
     
     alpha_rollover = False
     alpha_velocity = 0.25
@@ -89,6 +107,10 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
     await get_binary_audio_data(url, make_payload(alpha, prompt_a, prompt_b, seed_image_id, seed))
 
     while True:
+        if next_prompt and not transitioning:
+            transitioning = True
+            alpha = 0.25
+        
         # Convert the current audio to WAV
         upsampler = RealTimeUpsampler(44100, 88200)
         wav_data = convert_to_wav(binary_audio_data, upsampler)
@@ -101,35 +123,34 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
             alpha_rollover = True
         alpha = new_alpha
 
+        if transitioning:
+            if (alpha_rollover):
+                current_prompt = next_prompt
+                next_prompt = None
+                transitioning = False
+
         # Check if alpha has rolled over
         if alpha_rollover:
             seed += 1
             alpha_rollover = False
-            if prompt_a != prompt_b:
-                prompt_a = prompt_b
+            # if prompt_a != prompt_b:
+            #     prompt_a = prompt_b
+
+        
+        # Make next payload
+        next_payload = make_payload(alpha, current_prompt, current_prompt if not next_prompt else next_prompt, seed_image_id, seed)
 
         # Start playing the current audio
         play_audio_task = asyncio.to_thread(song.play)
 
         # While the current audio is playing, preload and convert the next one
-        preload_audio_task = await asyncio.to_thread(get_binary_audio_data, url, make_payload(alpha, prompt_a, prompt_b, seed_image_id, seed))
+        preload_audio_task = await asyncio.to_thread(get_binary_audio_data, url, next_payload)
 
         # Wait a constant amount of time so that there is good spacing between audio segments
         wait_audio_task = await asyncio.to_thread(asyncio.sleep, 5.05)
 
         # Run the tasks concurrently
         await asyncio.gather(play_audio_task, preload_audio_task, wait_audio_task)
-
-        # Wait until the current audio finishes playing before proceeding to the next iteration
-        # while pygame.mixer.get_busy():
-        #     pygame.time.Clock().tick()
-
-# Convert mp3 data to wav since that's what PyGame supports
-# def convert_to_wav(mp3_audio):
-#     mp3 = AudioSegment.from_mp3(BytesIO(mp3_audio))
-#     buffer = BytesIO()
-#     mp3.export(buffer, format="wav")
-#     return buffer.getvalue()
 
 # Convert mp3 data to wav (and upscale it) since that's what PyGame supports
 def convert_to_wav(mp3_audio, upsampler):
@@ -141,6 +162,7 @@ def convert_to_wav(mp3_audio, upsampler):
     upsampled_audio.export(buffer, format="wav")
     return buffer.getvalue()
 
+# Generate JSON payload for inference model
 def make_payload(alpha, prompt_a, prompt_b, seed_image_id, seed):
     payload = {
         "alpha": alpha,
@@ -166,5 +188,5 @@ if __name__ == '__main__':
     alpha = 0.25
     seed_image_id = initialSeeds[math.floor(random.random() * len(initialSeeds))]
     seed = initialSeedImageMap[seed_image_id][math.floor(random.random() * len(initialSeedImageMap[seed_image_id]))]
-    prompt = "calm lo-fi music"
-    asyncio.run(play_audio_and_request(url, alpha, seed, seed_image_id, prompt, prompt))
+    # prompt = "calming lo-fi"
+    asyncio.run(play_audio_and_request(url, alpha, seed, seed_image_id, current_prompt, current_prompt))
