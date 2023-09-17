@@ -62,7 +62,7 @@ async def send_message(irc, channel, message):
 async def main():
     bot_nick = "lo_fai"
     channel = "lo_fai"
-    oauth_token = "oauth:bzjdpmnvjlff2l6pgj80hdfr4yq6d8"
+    oauth_token = "oauth:6zkyss9uqrb1g1q62tpgl01ul1wdlz"
 
     irc = twitch_connect(bot_nick, channel, oauth_token)
     
@@ -316,7 +316,7 @@ async def update_SD_art():
 
     user_input = get_current_prompt()
     while True:
-        await asyncio.sleep(5)  # Add a delay to prevent high CPU usage
+        await asyncio.sleep(3)  # Add a delay to prevent high CPU usage
 
         prev_input = user_input
         user_input = get_current_prompt()
@@ -333,16 +333,20 @@ async def update_SD_art():
             "negative_prompt": "(human:1.5), (person:1.5), (grainy:1.3), grid, people, man, woman, nude, naked, nsfw, porn, text, portrait, watermark, signature, (words:1.5), (letters:1.5)",
             "steps": 20,
             "cfg_scale": 7,
-         }
+        }
 
         async with httpx.AsyncClient() as client:
             response = await client.post(f'{url}/sdapi/v1/txt2img', json=payload)
             r = response.json()
 
-            # Assuming you only want the first image
-            if r['images']:
+            print(r)
+            
+            # Check if 'images' key exists in the response and is a list
+            if r.get('images') and isinstance(r['images'], list) and r['images']:
                 i = r['images'][0]
-                image = Image.open(io.BytesIO(base64.b64decode(i.split(",",1)[0])))
+                
+                # Decode the image correctly
+                image = Image.open(io.BytesIO(base64.b64decode(i.split(",",1)[1])))
 
                 png_payload = {
                     "image": "data:image/png;base64," + i
@@ -389,7 +393,7 @@ def make_payload(alpha, prompt_a, prompt_b, seed_image_id, seed):
 def run_bot_and_audio():
     twitch_bot_thread = threading.Thread(target=asyncio.run, args=(main(),))
     audio_generator_thread = threading.Thread(target=asyncio.run, args=(play_audio_and_request(url, alpha, seed, seed_image_id, current_prompt, current_prompt),))
-    image_generator_thread = threading.Thread(target=asyncio.run, args=(update_SD_art()))
+    image_generator_thread = threading.Thread(target=asyncio.run, args=(update_SD_art(),))
 
     twitch_bot_thread.start()
     audio_generator_thread.start()
