@@ -115,7 +115,7 @@ async def return_popular_response():
     global suggestions
 
     if not suggestions:
-        return DEFAULT_PROMPT
+        return get_current_prompt()
     chosen_suggestion = random.choice(suggestions)
     suggestions.clear()
     return chosen_suggestion
