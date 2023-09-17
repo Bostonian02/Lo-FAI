@@ -10,6 +10,7 @@ from io import BytesIO
 import pygame
 import math
 import numpy as np
+import threading
 
 # Upsampler for the model's audio
 class RealTimeUpsampler:
@@ -49,6 +50,8 @@ next_prompt = None
 # Global flag
 next_prompt_changed = False
 
+next_promp_lock = threading.Lock()
+
 # Global variable for current prompt
 current_prompt = "calming lofi"
 
@@ -73,8 +76,9 @@ binary_audio_data = None
 async def set_next_prompt(prompt):
     global next_prompt
     global next_prompt_changed
-    next_prompt = prompt
-    next_prompt_changed = True
+    with next_promp_lock:
+        next_prompt = prompt
+        next_prompt_changed = True
 
 # Get binary audio data from the inference model response
 async def get_binary_audio_data(url, data):
@@ -118,6 +122,8 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
     await get_binary_audio_data(url, make_payload(alpha, prompt_a, prompt_b, seed_image_id, seed))
 
     while True:
+        print("next prompt?: " + str(next_prompt_changed))
+        print("transitioning?: " + str(transitioning))
         if next_prompt_changed and not transitioning:
             print("we are transitioning")
             transitioning = True
