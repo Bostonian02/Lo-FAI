@@ -46,6 +46,9 @@ initialSeeds = [
 # Global variable for next prompt
 next_prompt = None
 
+# Global flag
+next_prompt_changed = False
+
 # Global variable for current prompt
 current_prompt = "calming lofi"
 
@@ -69,7 +72,9 @@ binary_audio_data = None
 # Setter method for the next prompt
 def set_next_prompt(prompt):
     global next_prompt
+    global next_prompt_changed
     next_prompt = prompt
+    next_prompt_changed = True
 
 # Get binary audio data from the inference model response
 async def get_binary_audio_data(url, data):
@@ -102,6 +107,7 @@ async def run_inference(url, data):
 async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prompt_b):
     global binary_audio_data
     global next_prompt
+    global next_prompt_changed
     global transitioning
     global current_prompt
     
@@ -112,7 +118,7 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
     await get_binary_audio_data(url, make_payload(alpha, prompt_a, prompt_b, seed_image_id, seed))
 
     while True:
-        if next_prompt and not transitioning:
+        if next_prompt_changed and not transitioning:
             transitioning = True
             alpha = 0.25
         
@@ -132,6 +138,7 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
             if (alpha_rollover):
                 current_prompt = next_prompt
                 next_prompt = None
+                next_prompt_changed = False
                 transitioning = False
 
         # Check if alpha has rolled over
