@@ -167,7 +167,7 @@ def get_next_prompt():
     try:
         return next_prompt_queue.get_nowait()
     except queue.Empty:
-        return None
+        return get_current_prompt()
 
 # Get binary audio data from the inference model response
 async def get_binary_audio_data(url, data):
@@ -229,8 +229,8 @@ async def play_audio_and_request(url, alpha, seed, seed_image_id, prompt_a, prom
 
         if transitioning:
             if (alpha_rollover):
-                new_prompt = get_next_prompt()
-                if new_prompt:
+                if not next_prompt_queue.empty():
+                    new_prompt = get_next_prompt()
                     current_prompt = new_prompt
                     transitioning = False
 
