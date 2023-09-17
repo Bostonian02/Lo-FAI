@@ -37,7 +37,6 @@ def authenticate_twitch(client_id, client_secret, redirect_uri, scope):
         print(f'Error getting access token: {response.text}')
         return None
 
-# Example usage
 if __name__ == '__main__':
     client_id = 'r6tbyrbhqebfd12lslot06myjqb1hm'
     client_secret = '9pnpl9enexuyhm6sszws94ffonqpld'
